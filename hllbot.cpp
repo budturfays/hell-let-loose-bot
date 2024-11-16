@@ -2,9 +2,11 @@
 #include <iostream>
 #include <thread>
 #include <atomic>
+#include <chrono>
 
 // Atomic flag to control the loop
 std::atomic<bool> running(false);
+int shotCount = 0;  // Global variable to keep track of the number of shots
 
 // Function to press a key using virtual key code
 void PressKey(WORD virtualKeyCode) {
@@ -37,10 +39,15 @@ void LeftClick() {
     inputs[1].mi.dwFlags = MOUSEEVENTF_LEFTUP;
 
     SendInput(2, inputs, sizeof(INPUT));
+
+    // Increment shot count
+    shotCount++;
+    // Update the top row with the shot count
+    std::cout << "\rShot count: " << shotCount << "                " << std::flush;
 }
 
-// Function to make the console window stay on top and fix its size
-void MakeWindowStayOnTopAndFixSize(int width, int height) {
+// Function to make the console window stay on top, fix its size, and set transparency
+void MakeWindowStayOnTopAndFixSize(int width, int height, BYTE transparency) {
     HWND consoleWindow = GetConsoleWindow();  // Get handle to the console window
     if (consoleWindow != NULL) {
         // Set the window to be always on top
@@ -56,36 +63,54 @@ void MakeWindowStayOnTopAndFixSize(int width, int height) {
         LONG style = GetWindowLong(consoleWindow, GWL_STYLE);
         style &= ~(WS_MAXIMIZEBOX | WS_SIZEBOX);  // Disable maximize button and resizing
         SetWindowLong(consoleWindow, GWL_STYLE, style);
+
+        // Make the window layered and set its transparency
+        SetWindowLong(consoleWindow, GWL_EXSTYLE, GetWindowLong(consoleWindow, GWL_EXSTYLE) | WS_EX_LAYERED);
+        SetLayeredWindowAttributes(consoleWindow, 0, transparency, LWA_ALPHA);
     }
 }
 
 // Function to start the loop
 void StartLoop() {
+    const int totalSteps = 5;  // Number of steps in the sequence
     while (running) {
-        std::cout << "Simulating R key press...\n";
-        PressKey(0x52);  // Press R key
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        ReleaseKey(0x52);  // Release R key
+        for (int i = 1; i <= totalSteps && running; ++i) {
+            // Update the second line with the current action
+            switch (i) {
+                case 1:
+                    std::cout << "\nSimulating R key press...                " << std::flush;
+                    PressKey(0x52);  // Press R key
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    ReleaseKey(0x52);  // Release R key
+                    break;
+                case 2:
+                    std::cout << "\nWaiting for 4 seconds...                " << std::flush;
+                    std::this_thread::sleep_for(std::chrono::seconds(4));
+                    break;
+                case 3:
+                    std::cout << "\nSimulating F1 key hold for 2.1 seconds...                " << std::flush;
+                    PressKey(VK_F1);  // Press F1 key
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2100));
+                    ReleaseKey(VK_F1);  // Release F1 key
+                    break;
+                case 4:
+                    std::cout << "\nSimulating left mouse click...                " << std::flush;
+                    LeftClick();  // Perform a left mouse click
+                    break;
+                case 5:
+                    std::cout << "\nSimulating F2 key hold for 2.1 seconds...                " << std::flush;
+                    PressKey(VK_F2);  // Press F2 key
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2100));
+                    ReleaseKey(VK_F2);  // Release F2 key
+                    break;
+            }
 
-        std::this_thread::sleep_for(std::chrono::seconds(4));
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
 
-        std::cout << "Simulating F1 key hold for 2.1 seconds...\n";
-        PressKey(VK_F1);  // Press F1 key
-        std::this_thread::sleep_for(std::chrono::milliseconds(2100));
-        ReleaseKey(VK_F1);  // Release F1 key
-
-        std::cout << "Simulating left mouse click...\n";
-        LeftClick();  // Perform a left mouse click
-
+        // After the sequence is completed, update the second line
+        std::cout << "\nSequence completed.                " << std::flush;
         std::this_thread::sleep_for(std::chrono::seconds(1));
-
-        std::cout << "Simulating F2 key hold for 2.1 seconds...\n";
-        PressKey(VK_F2);  // Press F2 key
-        std::this_thread::sleep_for(std::chrono::milliseconds(2100));
-        ReleaseKey(VK_F2);  // Release F2 key
-
-        std::cout << "Sequence completed.\n";
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
@@ -97,11 +122,11 @@ void KeyboardListener() {
             running = !running;
 
             if (running) {
-                std::cout << "F10 pressed, starting the loop...\n";
+                std::cout << "\nStarting the loop...                " << std::flush;
                 std::thread loopThread(StartLoop);
                 loopThread.detach();
             } else {
-                std::cout << "F10 pressed again, stopping the loop...\n";
+                std::cout << "\nStopping the loop...                " << std::flush;
             }
 
             // Avoid multiple triggers by waiting until the key is released
@@ -110,28 +135,18 @@ void KeyboardListener() {
             }
         }
 
-        // Check for mouse movement to stop the loop
-        static POINT lastPos = {0, 0};
-        POINT currentPos;
-        GetCursorPos(&currentPos);
-
-        if (currentPos.x != lastPos.x || currentPos.y != lastPos.y) {
-            if (running) {
-                std::cout << "Mouse moved, stopping the loop...\n";
-                running = false;
-            }
-            lastPos = currentPos;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 }
 
 int main() {
-    // Make the console window always stay on top and fix its size to 400x300 pixels
-    MakeWindowStayOnTopAndFixSize(350, 100);
+    // Make the console window always stay on top, fix its size to 400x80 pixels, and set transparency
+    BYTE transparency = 100;  // Value between 0 (completely transparent) to 255 (completely opaque)
+    MakeWindowStayOnTopAndFixSize(400, 80, transparency);
 
-    std::cout << "Program running, press F10 to start or stop the sequence, or move the mouse to stop.\n";
+    // Display initial instructions in exactly two rows
+    std::cout << "Shot count: 0                " << std::endl;
+    std::cout << "Waiting for F10 to start...                \r" << std::flush;
 
     // Start listening for keyboard input
     KeyboardListener();
