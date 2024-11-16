@@ -4,6 +4,7 @@
 #include <thread>
 #include <atomic>
 #include <chrono>
+#include <iomanip>  // For setting decimal precision
 
 // Atomic flag to control the loop
 std::atomic<bool> running(false);
@@ -43,8 +44,8 @@ void LeftClick() {
 
     // Increment shot count
     shotCount++;
-    // Update the top row with the shot count
-    std::cout << "\rShot count: " << shotCount << "                " << std::flush;
+    // Update the top row with the shot count and current action
+    std::cout << "\rShot count: " << shotCount << " | Left mouse click                " << std::flush;
 }
 
 // Function to make the console window stay on top, fix its size, and set transparency
@@ -79,44 +80,52 @@ void SetWindowTransparency(BYTE transparency) {
     }
 }
 
+// Function to display a countdown in seconds with one decimal place in a single row
+void DisplayCountdown(double seconds) {
+    for (double t = seconds; t >= 0; t -= 0.1) {
+        // Ensure the output stays on the same line
+        std::cout << "\rCountdown: " << std::fixed << std::setprecision(1) << t << " seconds...                " << std::flush;
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+}
+
 // Function to start the loop
 void StartLoop() {
     const int totalSteps = 5;  // Number of steps in the sequence
     while (running) {
         for (int i = 1; i <= totalSteps && running; ++i) {
-            // Update the second line with the current action
-            std::cout << "\rShot count: " << shotCount << "\n";
+            // Update the first line with shot count and current action
             switch (i) {
                 case 1:
-                    std::cout << "Simulating R key press...                " << std::flush;
+                    std::cout << "\rShot count: " << shotCount << " | Simulating R key press...                " << std::flush;
                     PressKey(0x52);  // Press R key
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     ReleaseKey(0x52);  // Release R key
                     break;
                 case 2:
-                    std::cout << "Waiting for 3.8 seconds...                " << std::flush;
-                    std::this_thread::sleep_for(std::chrono::milliseconds(3800));
+                    std::cout << "\rShot count: " << shotCount << " | Waiting for 3.8 seconds...                " << std::flush;
+                    DisplayCountdown(3.8);  // Show countdown from 3.8 seconds
                     break;
                 case 3:
-                    std::cout << "Simulating F1 key hold for 2.1 seconds...                " << std::flush;
+                    std::cout << "\rShot count: " << shotCount << " | Simulating F1 key hold for 2.1 seconds...                " << std::flush;
                     PressKey(VK_F1);  // Press F1 key
-                    std::this_thread::sleep_for(std::chrono::milliseconds(2100));
+                    DisplayCountdown(2.1);  // Show countdown from 2.1 seconds
                     ReleaseKey(VK_F1);  // Release F1 key
                     break;
                 case 4:
-                    std::cout << "Simulating left mouse click...                " << std::flush;
+                    std::cout << "\rShot count: " << shotCount << " | Simulating left mouse click...                " << std::flush;
                     LeftClick();  // Perform a left mouse click
                     break;
                 case 5:
-                    std::cout << "Simulating F2 key hold for 1.8 seconds...                " << std::flush;
+                    std::cout << "\rShot count: " << shotCount << " | Simulating F2 key hold for 1.8 seconds...                " << std::flush;
                     PressKey(VK_F2);  // Press F2 key
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1800));
+                    DisplayCountdown(1.8);  // Show countdown from 1.8 seconds
                     ReleaseKey(VK_F2);  // Release F2 key
                     break;
             }
         }
-        // After the sequence is completed, update the second line
-        std::cout << "\rShot count: " << shotCount << "\nSequence completed.                " << std::flush;
+        // After the sequence is completed, update the first line
+        std::cout << "\rShot count: " << shotCount << " | Sequence completed.                " << std::flush;
     }
 }
 
@@ -128,7 +137,7 @@ void KeyboardListener() {
             running = !running;
 
             if (running) {
-                std::cout << "\rShot count: " << shotCount << "\nStarting the loop...                " << std::flush;
+                std::cout << "\rShot count: " << shotCount << " | Starting the loop...                " << std::flush;
 
                 // Set transparency to 200 when the loop starts
                 SetWindowTransparency(200);
@@ -137,7 +146,7 @@ void KeyboardListener() {
                 std::thread loopThread(StartLoop);
                 loopThread.detach();
             } else {
-                std::cout << "\rShot count: " << shotCount << "\nStopping the loop...                " << std::flush;
+                std::cout << "\rShot count: " << shotCount << " | Stopping the loop...                " << std::flush;
 
                 // Set transparency back to the default level (e.g., 100) when stopping the loop
                 SetWindowTransparency(100);
@@ -159,8 +168,7 @@ int main() {
     MakeWindowStayOnTopAndFixSize(400, 80, initialTransparency);
 
     // Display initial instructions in exactly two rows
-    std::cout << "Shot count: 0                " << std::endl;
-    std::cout << "Waiting for F10 to start...                " << std::flush;
+    std::cout << "Shot count: 0 | Waiting for F10 to start...                \nCountdown: Waiting...                " << std::flush;
 
     // Start listening for keyboard input
     KeyboardListener();
