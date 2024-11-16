@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <mmsystem.h>  // Include the header for PlaySound
 #include <iostream>
 #include <thread>
 #include <atomic>
@@ -70,47 +71,52 @@ void MakeWindowStayOnTopAndFixSize(int width, int height, BYTE transparency) {
     }
 }
 
+// Function to set new transparency level
+void SetWindowTransparency(BYTE transparency) {
+    HWND consoleWindow = GetConsoleWindow();  // Get handle to the console window
+    if (consoleWindow != NULL) {
+        SetLayeredWindowAttributes(consoleWindow, 0, transparency, LWA_ALPHA);
+    }
+}
+
 // Function to start the loop
 void StartLoop() {
     const int totalSteps = 5;  // Number of steps in the sequence
     while (running) {
         for (int i = 1; i <= totalSteps && running; ++i) {
             // Update the second line with the current action
+            std::cout << "\rShot count: " << shotCount << "\n";
             switch (i) {
                 case 1:
-                    std::cout << "\nSimulating R key press...                " << std::flush;
+                    std::cout << "Simulating R key press...                " << std::flush;
                     PressKey(0x52);  // Press R key
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                     ReleaseKey(0x52);  // Release R key
                     break;
                 case 2:
-                    std::cout << "\nWaiting for 4 seconds...                " << std::flush;
-                    std::this_thread::sleep_for(std::chrono::seconds(4));
+                    std::cout << "Waiting for 3.8 seconds...                " << std::flush;
+                    std::this_thread::sleep_for(std::chrono::milliseconds(3800));
                     break;
                 case 3:
-                    std::cout << "\nSimulating F1 key hold for 2.1 seconds...                " << std::flush;
+                    std::cout << "Simulating F1 key hold for 2.1 seconds...                " << std::flush;
                     PressKey(VK_F1);  // Press F1 key
                     std::this_thread::sleep_for(std::chrono::milliseconds(2100));
                     ReleaseKey(VK_F1);  // Release F1 key
                     break;
                 case 4:
-                    std::cout << "\nSimulating left mouse click...                " << std::flush;
+                    std::cout << "Simulating left mouse click...                " << std::flush;
                     LeftClick();  // Perform a left mouse click
                     break;
                 case 5:
-                    std::cout << "\nSimulating F2 key hold for 2.1 seconds...                " << std::flush;
+                    std::cout << "Simulating F2 key hold for 1.8 seconds...                " << std::flush;
                     PressKey(VK_F2);  // Press F2 key
-                    std::this_thread::sleep_for(std::chrono::milliseconds(2100));
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1800));
                     ReleaseKey(VK_F2);  // Release F2 key
                     break;
             }
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
-
         // After the sequence is completed, update the second line
-        std::cout << "\nSequence completed.                " << std::flush;
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::cout << "\rShot count: " << shotCount << "\nSequence completed.                " << std::flush;
     }
 }
 
@@ -122,11 +128,19 @@ void KeyboardListener() {
             running = !running;
 
             if (running) {
-                std::cout << "\nStarting the loop...                " << std::flush;
+                std::cout << "\rShot count: " << shotCount << "\nStarting the loop...                " << std::flush;
+
+                // Set transparency to 200 when the loop starts
+                SetWindowTransparency(200);
+
+                // Start the loop in a separate thread
                 std::thread loopThread(StartLoop);
                 loopThread.detach();
             } else {
-                std::cout << "\nStopping the loop...                " << std::flush;
+                std::cout << "\rShot count: " << shotCount << "\nStopping the loop...                " << std::flush;
+
+                // Set transparency back to the default level (e.g., 100) when stopping the loop
+                SetWindowTransparency(100);
             }
 
             // Avoid multiple triggers by waiting until the key is released
@@ -135,18 +149,18 @@ void KeyboardListener() {
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
 int main() {
-    // Make the console window always stay on top, fix its size to 400x80 pixels, and set transparency
-    BYTE transparency = 100;  // Value between 0 (completely transparent) to 255 (completely opaque)
-    MakeWindowStayOnTopAndFixSize(400, 80, transparency);
+    // Make the console window always stay on top, fix its size to 400x120 pixels, and set transparency
+    BYTE initialTransparency = 100;  // Initial transparency value between 0 (completely transparent) to 255 (completely opaque)
+    MakeWindowStayOnTopAndFixSize(400, 80, initialTransparency);
 
     // Display initial instructions in exactly two rows
     std::cout << "Shot count: 0                " << std::endl;
-    std::cout << "Waiting for F10 to start...                \r" << std::flush;
+    std::cout << "Waiting for F10 to start...                " << std::flush;
 
     // Start listening for keyboard input
     KeyboardListener();
