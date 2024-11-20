@@ -115,13 +115,13 @@ void StartLoop() {
                     ReleaseKey(0x52);  // Release R key
                     break;
                 case 2:
-                    std::cout << "\rShot count: " << shotCount << " | Waiting for 3.8 seconds...                " << std::flush;
-                    DisplayCountdown(3.8);  // Show countdown from 3.8 seconds
+                    std::cout << "\rShot count: " << shotCount << " | Waiting for 3.5 seconds...                " << std::flush;
+                    DisplayCountdown(3.5);  // Show countdown from 3.5 seconds
                     break;
                 case 3:
-                    std::cout << "\rShot count: " << shotCount << " | Simulating F1 key hold for 2.1 seconds...                " << std::flush;
-                    PressKey(VK_F1);  // Press F1 key
-                    DisplayCountdown(2.1);  // Show countdown from 2.1 seconds
+                    std::cout << "\rShot count: " << shotCount << " | Simulating F1 key for 1.8 seconds...                " << std::flush;
+                    PressKey(VK_F1);  // Pressr F1 key
+                    DisplayCountdown(1.8);  // Show countdown from 1.8 seconds
                     ReleaseKey(VK_F1);  // Release F1 key
                     break;
                 case 4:
