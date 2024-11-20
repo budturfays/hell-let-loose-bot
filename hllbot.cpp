@@ -9,6 +9,7 @@
 // Atomic flag to control the loop
 std::atomic<bool> running(false);
 int shotCount = 0;  // Global variable to keep track of the number of shots
+bool clickThrough = true;  // Boolean flag to indicate if the window is in click-through mode
 
 // Function to press a key using virtual key code
 void PressKey(WORD virtualKeyCode) {
@@ -48,26 +49,37 @@ void LeftClick() {
     std::cout << "\rShot count: " << shotCount << " | Left mouse click                " << std::flush;
 }
 
-// Function to make the console window stay on top, fix its size, and set transparency
-void MakeWindowStayOnTopAndFixSize(int width, int height, BYTE transparency) {
+// Function to make the console window stay on top, fix its size, set transparency, position to top-right, and set click-through
+void MakeWindowStayOnTopAndFixSize(int width, int height, BYTE transparency, bool enableClickThrough) {
     HWND consoleWindow = GetConsoleWindow();  // Get handle to the console window
     if (consoleWindow != NULL) {
         // Set the window to be always on top
         SetWindowPos(consoleWindow, HWND_TOPMOST, 0, 0, 0, 0,
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 
-        // Set the window size
-        RECT rect;
-        GetWindowRect(consoleWindow, &rect);
-        MoveWindow(consoleWindow, rect.left, rect.top, width, height, TRUE);
+        // Get screen width and set position to top-right
+        RECT desktop;
+        const HWND hDesktop = GetDesktopWindow();
+        GetWindowRect(hDesktop, &desktop);
+        int screenWidth = desktop.right;
+        int xPosition = screenWidth - width;  // Calculate x-position for top-right
+        int yPosition = 0;  // Top-right, so y-position is 0
+
+        // Set the window size and move to top-right
+        MoveWindow(consoleWindow, xPosition, yPosition, width, height, TRUE);
 
         // Disable resizing by modifying window styles
         LONG style = GetWindowLong(consoleWindow, GWL_STYLE);
         style &= ~(WS_MAXIMIZEBOX | WS_SIZEBOX);  // Disable maximize button and resizing
         SetWindowLong(consoleWindow, GWL_STYLE, style);
 
-        // Make the window layered and set its transparency
-        SetWindowLong(consoleWindow, GWL_EXSTYLE, GetWindowLong(consoleWindow, GWL_EXSTYLE) | WS_EX_LAYERED);
+        // Make the window layered, set its transparency, and optionally make it click-through
+        LONG exStyle = GetWindowLong(consoleWindow, GWL_EXSTYLE);
+        if (enableClickThrough) {
+            SetWindowLong(consoleWindow, GWL_EXSTYLE, exStyle | WS_EX_LAYERED | WS_EX_TRANSPARENT);
+        } else {
+            SetWindowLong(consoleWindow, GWL_EXSTYLE, (exStyle | WS_EX_LAYERED) & ~WS_EX_TRANSPARENT);
+        }
         SetLayeredWindowAttributes(consoleWindow, 0, transparency, LWA_ALPHA);
     }
 }
@@ -131,31 +143,55 @@ void StartLoop() {
 
 // Function to handle keyboard input
 void KeyboardListener() {
+    int f10PressCount = 0;  // Track the number of F10 presses
+
     while (true) {
         if (GetAsyncKeyState(VK_F10) & 0x8000) {
-            // Toggle the running flag
-            running = !running;
-
-            if (running) {
-                std::cout << "\rShot count: " << shotCount << " | Starting the loop...                " << std::flush;
-
-                // Set transparency to 200 when the loop starts
-                SetWindowTransparency(200);
-
-                // Start the loop in a separate thread
-                std::thread loopThread(StartLoop);
-                loopThread.detach();
+            if (GetAsyncKeyState(VK_CONTROL) & 0x8000) {
+                // Ctrl + F10 pressed: Toggle click-through mode
+                clickThrough = !clickThrough;
+                MakeWindowStayOnTopAndFixSize(400, 80, clickThrough ? 100 : 200, clickThrough);
+                std::cout << "\rShot count: " << shotCount << " | Toggling click-through mode...                " << std::flush;
             } else {
-                std::cout << "\rShot count: " << shotCount << " | Stopping the loop...                " << std::flush;
+                f10PressCount++;
 
-                // Set transparency back to the default level (e.g., 100) when stopping the loop
-                SetWindowTransparency(100);
+                if (f10PressCount == 1) {
+                    // Toggle the running flag
+                    running = !running;
+
+                    if (running) {
+                        std::cout << "\rShot count: " << shotCount << " | Starting the loop...                " << std::flush;
+
+                        // Set transparency to 200 when the loop starts
+                        SetWindowTransparency(200);
+
+                        // Start the loop in a separate thread
+                        std::thread loopThread(StartLoop);
+                        loopThread.detach();
+                    } else {
+                        std::cout << "\rShot count: " << shotCount << " | Stopping the loop...                " << std::flush;
+
+                        // Set transparency back to the default level (e.g., 100) when stopping the loop
+                        SetWindowTransparency(100);
+                    }
+                } else if (f10PressCount == 2) {
+                    // Reset the shot count when F10 is pressed twice
+                    shotCount = 0;
+                    std::cout << "\rShot count: " << shotCount << " | Resetting shot count...                " << std::flush;
+                } else if (f10PressCount == 3) {
+                    // Exit the program when F10 is pressed three times
+                    std::cout << "\rShot count: " << shotCount << " | Closing the program...                " << std::flush;
+                    exit(0);
+                }
             }
 
             // Avoid multiple triggers by waiting until the key is released
             while (GetAsyncKeyState(VK_F10) & 0x8000) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
+        } else {
+            // Reset the F10 press count if F10 is not being pressed
+            f10PressCount = 0;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -163,9 +199,9 @@ void KeyboardListener() {
 }
 
 int main() {
-    // Make the console window always stay on top, fix its size to 400x120 pixels, and set transparency
+    // Make the console window always stay on top, fix its size to 400x80 pixels, set transparency, and position to top-right
     BYTE initialTransparency = 100;  // Initial transparency value between 0 (completely transparent) to 255 (completely opaque)
-    MakeWindowStayOnTopAndFixSize(400, 80, initialTransparency);
+    MakeWindowStayOnTopAndFixSize(400, 80, initialTransparency, true);
 
     // Display initial instructions in exactly two rows
     std::cout << "Shot count: 0 | Waiting for F10 to start...                \nCountdown: Waiting...                " << std::flush;
